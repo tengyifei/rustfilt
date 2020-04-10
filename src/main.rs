@@ -14,66 +14,24 @@
 
 #[macro_use]
 extern crate clap;
-#[macro_use]
-extern crate lazy_static;
-extern crate regex;
-extern crate rustc_demangle;
-
-use rustc_demangle::demangle;
-use regex::{Regex, Captures};
-
-use std::borrow::Cow;
-use std::fs::File;
-use std::io::{self, BufRead, BufReader, BufWriter, Write, stdin, stdout, stderr};
-use std::path::{Path, PathBuf};
-use std::str::FromStr;
-use std::process::exit;
 
 mod tests;
+mod demangle;
 
-lazy_static! {
-    // NOTE: Use [[:alnum::]] instead of \w to only match ASCII word characters, not unicode
-    static ref MANGLED_NAME_PATTERN: Regex = Regex::new(r"_(ZN|R)[\$\._[:alnum:]]*").unwrap();
-}
+use std::fs::File;
+use std::path::{Path, PathBuf};
+use std::str::FromStr;
+use std::io::{self, BufReader, BufWriter, Write, stdin, stdout, stderr};
+use std::process::exit;
+use self::demangle::{demangle, demangle_stream};
 
-#[inline] // Except for the nested functions (which don't count), this is a very small function
-pub fn demangle_line(line: &str, include_hash: bool) -> Cow<str> {
-    MANGLED_NAME_PATTERN.replace_all(line, |captures: &Captures| {
-        let demangled = demangle(&captures[0]);
-        if include_hash {
-            demangled.to_string()
-        } else {
-            // Use alternate formatting to exclude the hash from the result
-            format!("{:#}", demangled)
-        }
-    })
-}
-
-fn demangle_stream<R: BufRead, W: Write>(input: &mut R, output: &mut W, include_hash: bool) -> io::Result<()> {
-    // NOTE: this is actually more efficient than lines(), since it re-uses the buffer
-    let mut buf = String::new();
-    while input.read_line(&mut buf)? > 0 {
-        {
-            // NOTE: This includes the line-ending, and leaves it untouched
-            let demangled_line = demangle_line(&buf, include_hash);
-            if cfg!(debug_assertions) && buf.ends_with('\n') {
-                let line_ending = if buf.ends_with("\r\n") { "\r\n" } else { "\n" };
-                debug_assert!(demangled_line.ends_with(line_ending), "Demangled line has incorrect line ending");
-            }
-            output.write_all(demangled_line.as_bytes())?;
-        }
-        buf.clear(); // Reset the buffer's position, without freeing it's underlying memory
-    }
-    Ok(()) // Successfully hit EOF
-}
-
-enum InputType {
+pub enum InputType {
     Stdin,
     File(PathBuf)
 }
 
 impl InputType {
-    fn demangle(&self, output: OutputType, include_hash: bool) -> io::Result<()> {
+    pub fn demangle(&self, output: OutputType, include_hash: bool) -> io::Result<()> {
         // NOTE: This has to be seperated into two functions for generics
         match *self {
             InputType::Stdin => {
@@ -84,7 +42,7 @@ impl InputType {
             InputType::File(ref path) => output.write_demangled(&mut BufReader::new(File::open(path)?), include_hash)
         }
     }
-    fn validate(file: String) -> Result<(), String> {
+    pub fn validate(file: String) -> Result<(), String> {
         file.parse::<InputType>().map(|_| ())
     }
 }
@@ -108,7 +66,7 @@ impl FromStr for InputType {
     }
 }
 
-enum OutputType {
+pub enum OutputType {
     Stdout,
     File(PathBuf)
 }
@@ -129,7 +87,7 @@ impl OutputType {
             }
         }
     }
-    fn write_demangled_names<S: AsRef<str>>(&self, names: &[S], include_hash: bool) -> io::Result<()> {
+    pub fn write_demangled_names<S: AsRef<str>>(&self, names: &[S], include_hash: bool) -> io::Result<()> {
         #[inline] // It's only used twice ;)
         fn demangle_names_to<S: AsRef<str>, O: io::Write>(names: &[S], output: &mut O, include_hash: bool) -> io::Result<()> {
             for name in names {
@@ -155,10 +113,11 @@ impl OutputType {
             }
         }
     }
-    fn validate(file: String) -> Result<(), String> {
+    pub fn validate(file: String) -> Result<(), String> {
         file.parse::<OutputType>().map(|_| ())
     }
 }
+
 impl FromStr for OutputType {
     type Err = String;
     fn from_str(file: &str) -> Result<OutputType, String> {
@@ -174,6 +133,7 @@ impl FromStr for OutputType {
         }
     }
 }
+
 
 fn main() {
     let args: clap::ArgMatches = clap_app!(rust_demangle =>
@@ -200,3 +160,4 @@ fn main() {
         })
     }
 }
+

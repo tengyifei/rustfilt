@@ -8,9 +8,20 @@ authors = ["Ted Mielczarek <ted@mielczarek.org>", "Nicholas Schlabach <Techcable
 readme = "README.md"
 license = "Apache-2.0"
 
+[lib]
+name = "rustfilt"
+crate-type = ["staticlib"]
+path = "src/demangle.rs"
+test = false
+bench = false
+
+[[bin]]
+name = "rustfilt"
+test = true
+bench = false
+
 [dependencies]
-rustc-demangle = "^0.1.4"
-lazy_static = "^1"
+rustc-demangle = "^0.1.16"
 regex = "^1"
 
 [dependencies.clap]

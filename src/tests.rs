@@ -1,9 +1,9 @@
 #![cfg(test)]
 ///! Tests demangle_line, based upon the assumption rustc_demangle works properly
 
-use rustc_demangle::demangle;
-use super::demangle_line;
-use super::demangle_stream;
+use demangle::rustc_demangle::demangle;
+use demangle::demangle_line;
+use demangle::demangle_stream;
 
 static MANGLED_NAMES: &'static [&'static str] = &[
     "_ZN55_$LT$$RF$$u27$a$u20$T$u20$as$u20$core..fmt..Display$GT$3fmt17h510ed05e72307174E",
